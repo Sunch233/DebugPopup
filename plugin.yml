@@ -1,0 +1,7 @@
+name: DebugPopup
+main: sunch233\testPopup\Main
+version: 1.0.0
+api: 2.0.0
+load: POSTWORLD
+author: sunch233
+description: a cool plugin use popup to show debug-info
