@@ -30,12 +30,15 @@ class Main extends PluginBase implements Listener{
 	/** @var Player[]  */
 	protected $players = [];
 
+	protected $msPerTick = 50; //default 50ms per tick
+
 	public function onEnable(){
 		$this->getServer()->getPluginManager()->registerEvents($this, $this);
 
 		$this->lastTick = microtime(true);
 		$this->getServer()->getScheduler()->scheduleRepeatingTask(new CallbackTask([$this, 'onPopup']), 1);
-		$this->tickInterval = array_fill(0, 10, Server::TARGET_SECONDS_PER_TICK * 1000);
+		if($this->getServer()->getName() == 'SCAXE') $this->msPerTick = Server::TARGET_SECONDS_PER_TICK * 1000; //SCAXE 3.0+
+		$this->tickInterval = array_fill(0, 10, $this->msPerTick);
 
 		$this->getLogger()->info('enabled');
 	}
@@ -59,7 +62,7 @@ class Main extends PluginBase implements Listener{
 			$levels = $server->getLevels();
 
 			array_shift($this->tickInterval);
-			$this->tickInterval[] = (microtime(true) - $this->lastTick - Server::TARGET_SECONDS_PER_TICK) * 1000;
+			$this->tickInterval[] = (microtime(true) - $this->lastTick) * 1000 - $this->msPerTick;
 			$this->lastTick = microtime(true);
 
 			$chunkCount = 0;
@@ -68,13 +71,18 @@ class Main extends PluginBase implements Listener{
 			$entities = 0;
 			foreach($levels as $level){
 				$chunkCount += count($level->getChunks());
-				$tickingChunkCount += $level->getTickingChunksCount();
+				if($server->getName() == 'SCAXE'){
+					$tickingChunkCount += $level->getTickingChunksCount(); //SCAXE
+				}else{
+					$tickingChunkCount = 'unsupport';
+				}
+
 				$entities += count($level->getEntities());
 				$tileCount += count($level->getTiles());
 			}
 			$serverInfo = [
 				'TPS' => $server->getTicksPerSecondAverage(),
-				'MSPT' => round($server->getTickUsageAverage() / 100 * Server::TARGET_SECONDS_PER_TICK * 1000, 1) . "ms" ,
+				'MSPT' => round($server->getTickUsageAverage() / 100 * $this->msPerTick, 1) . "ms" ,
 				'Deviation' => round(array_sum($this->tickInterval) / count($this->tickInterval), 1).'ms',
 				'ChunksLoaded' => $tickingChunkCount . '/' . $chunkCount,
 				'Tiles' => $tileCount,
@@ -95,7 +103,7 @@ class Main extends PluginBase implements Listener{
 				$block = $player->getLevel()->getBlock($blockPos);
 				$level = $player->getLevel();
 
-				if($server->getName() == 'SCAXE'){
+				if($server->getName() == 'SCAXE'){ //SCAXE
 					$ping = $player->getPing().'ms';
 				}else{
 					$ping = 'unsupport';
@@ -118,10 +126,7 @@ class Main extends PluginBase implements Listener{
 						$weather = 'unkonwn';
 						break;
 				}
-
-				$data = [
-					...$serverInfo,
-
+				$playerInfo = [
 					'Ping' => $ping,
 					'Pos' => number_format($pos->x, 1, '.', '').' '.number_format($pos->y, 1, '.', '').' '.number_format($pos->z, 1, '.', ''),
 					'Health' => $player->getHealth() . '/' . $player->getMaxHealth(),
@@ -130,23 +135,23 @@ class Main extends PluginBase implements Listener{
 					'Saturation' => round($player->getSaturation(), 1),
 
 					'Level' => $level->getName(),
-					'TickMs' => $level->getTickRateTime(),
+					'TickMs' => round($level->getTickRateTime()),
 					'Time' => $level->getTime(),
 					'Biome' => Biome::getBiome($level->getBiomeId($pos->x, $pos->z))->getName(),
-					'Exp' => $player->getXpLevel().'L/'.$player->getFilledXp(),
+					'Exp' => $player->getXpLevel().'L/'.$player->getExp(),
 					'OnGround' => $player->isOnGround() ? 'true' : 'false',
-					'Moving' => $player->isMoving() ? $player->isSwimming() ? 'swimming' : ($player->isClimbing() ? 'climbing' : 'moving') : 'false', //mess
+					'Moving' => $player->isMoving() ? ($server->getName() == 'SCAXE' and $player->isSwimming()) ? 'swimming' : (($server->getName() == 'SCAXE' and $player->isClimbing()) ? 'climbing' : 'moving') : 'false', //mess
 
 					'Block' => $block->getName(),
-					'aabbCount' => count($block->getCollisionBoxes()),
+					'aabbCount' => $server->getName() == 'SCAXE' ? count($block->getCollisionBoxes()) : ($block->getBoundingBox() == null ? 0 : 1),
 					'Light' => $level->getBlockLightAt($pos->x, $pos->y, $pos->z),
-					'SkyLight' => $level->getRealBlockSkyLightAt($pos->x, $pos->y, $pos->z),
+					'SkyLight' => $server->getName() == 'SCAXE' ? $level->getRealBlockSkyLightAt($pos->x, $pos->y, $pos->z) : $level->getBlockLightAt($pos->x, $pos->y, $pos->z),
 					'Weather' => $weather,
 					'§a'.date('H') => '§a'.date('i: s')
 					//1 line empty
 				];
 
-				$this->sendPopup($player, $data);
+				$this->sendPopup($player, array_merge($serverInfo, $playerInfo));
 			}
 		}
 	}
