@@ -38,7 +38,7 @@ class Main extends PluginBase implements Listener{
 		$this->lastTick = microtime(true);
 		$this->getServer()->getScheduler()->scheduleRepeatingTask(new CallbackTask([$this, 'onPopup']), 1);
 		if($this->getServer()->getName() == 'SCAXE') $this->msPerTick = Server::TARGET_SECONDS_PER_TICK * 1000; //SCAXE 3.0+
-		$this->tickInterval = array_fill(0, 10, $this->msPerTick);
+		$this->tickInterval = array_fill(0, 10, 0);
 
 		$this->getLogger()->info('enabled');
 	}
@@ -62,7 +62,7 @@ class Main extends PluginBase implements Listener{
 			$levels = $server->getLevels();
 
 			array_shift($this->tickInterval);
-			$this->tickInterval[] = (microtime(true) - $this->lastTick) * 1000 - $this->msPerTick;
+			$this->tickInterval[] = abs((microtime(true) - $this->lastTick) * 1000 - $this->msPerTick);
 			$this->lastTick = microtime(true);
 
 			$chunkCount = 0;
